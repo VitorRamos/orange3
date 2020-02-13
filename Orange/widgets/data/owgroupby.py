@@ -70,4 +70,4 @@ class OWGroupby(widget.OWWidget):
 
 
 if __name__ == "__main__":  # pragma: no cover
-    WidgetPreview(OWSave).run(Table("iris"))
+    WidgetPreview(OWGroupby).run(Table("iris"))
