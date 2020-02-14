@@ -89,16 +89,19 @@ class OWPandasImport(OWWidget):
         )
         dlg.setNameFilters(formats)
 
-        # Recall the last stated
-        state = self.dialog_state
-        lastdir = state.get("directory", "")
-        lastfilter = state.get("filter", "")
-        if lastdir and os.path.isdir(lastdir):
-            dlg.setDirectory(lastdir)
-        if lastfilter:
-            dlg.selectNameFilter(lastfilter)
+        self.recall_last_state(dlg)
         
         status = dlg.exec_()
         dlg.deleteLater()
 
         # TODO: code the processing of chosen file
+    
+    def recall_last_state(self, file_dialog):
+        state = self.dialog_state
+        lastdir = state.get("directory", "")
+        lastfilter = state.get("filter", "")
+
+        if lastdir and os.path.isdir(lastdir):
+            file_dialog.setDirectory(lastdir)
+        if lastfilter:
+            file_dialog.selectNameFilter(lastfilter)
