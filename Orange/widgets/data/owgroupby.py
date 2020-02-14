@@ -4,6 +4,8 @@ from AnyQt.QtWidgets import (
     QFileDialog, QGridLayout, QMessageBox,
     QTableView, QRadioButton, QButtonGroup, QGridLayout,
     QStackedWidget, QHeaderView, QCheckBox, QItemDelegate,
+    QListWidget, QAbstractItemView, QListWidgetItem,
+    QPushButton
 )
 
 from Orange.data.table import Table
@@ -12,10 +14,11 @@ from Orange.widgets import gui, widget
 from Orange.widgets.widget import Input, Output
 from Orange.widgets.settings import Setting
 from Orange.widgets.utils.widgetpreview import WidgetPreview
+from PyQt5.QtCore import pyqtSlot as Slot, pyqtSignal as Signal
 
 
 _userhome = os.path.expanduser(f"~{os.sep}")
-
+import pandas as pd
 
 class OWGroupby(widget.OWWidget):
     name = "Groupby"
@@ -36,10 +39,10 @@ class OWGroupby(widget.OWWidget):
         general_error = widget.Msg("{}")
 
     class Inputs:
-        data = Input("Data", Table)
+        data = Input("Data", pd.DataFrame)
 
     class Outputs:
-        out_data = Output("Same data Data", Table, default=True)
+        out_data = Output("Same data Data", pd.DataFrame, default=True)
 
     add_type_annotations = Setting(True)
     want_main_area = False
@@ -51,8 +54,24 @@ class OWGroupby(widget.OWWidget):
     def __init__(self):
         super().__init__()
         grid = QGridLayout()
-        b = QRadioButton("AAAAA")
-        grid.addWidget(b, 0, 0)
+        self.by = QListWidget()
+        self.by.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        grid.addWidget(self.by, 0, 0)
+
+        self.apply = QListWidget()
+        self.functions= {
+            "min": pd.core.groupby.generic.DataFrameGroupBy.min,
+            "max": pd.core.groupby.generic.DataFrameGroupBy.max,
+            "mean": pd.core.groupby.generic.DataFrameGroupBy.mean,
+        }
+        for i in self.functions:
+            item = QListWidgetItem(i)
+            self.apply.addItem(item)
+        grid.addWidget(self.apply, 0, 1)
+
+        self.button = QPushButton("Process")
+        self.button.clicked.connect(self.process)
+        grid.addWidget(self.button, 1, 0)
 
         selMethBox = gui.vBox(self.controlArea, "Select Attributes", addSpace=True)
         selMethBox.layout().addLayout(grid)
@@ -61,9 +80,26 @@ class OWGroupby(widget.OWWidget):
 
     @Inputs.data
     def dataset(self, data):
-        self.data = data
-        self.data.domain
-        self.Outputs.out_data.send(data)
+        if data is not None:
+            self.data = data
+            self.by.clear()
+            for i in self.data.columns:
+                item = QListWidgetItem(f"{i}")
+                self.by.addItem(item)
+            #self.Outputs.out_data.send(data)
+
+    @Slot()
+    def process(self):
+        byitems= list(map(lambda x: x.text(), self.by.selectedItems()))
+        if len(self.apply.selectedItems()) > 0:
+            appitem= self.apply.selectedItems()[0].text()
+
+        df= self.data.groupby(byitems)
+        print(df)
+        df= getattr(df, appitem)()
+        print(df)
+        df= df.reset_index(drop=True)
+        self.Outputs.out_data.send(df)
 
     def send_report(self):
         self.report_data_brief(self.data)
