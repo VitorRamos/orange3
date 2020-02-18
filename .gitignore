@@ -1,4 +1,5 @@
 # Build files
+venv
 build
 dist
 Orange3.egg-info

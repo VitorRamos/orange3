@@ -1,21 +1,18 @@
 import os.path
+import pandas as pd
 
 from AnyQt.QtWidgets import (
-    QFileDialog, QGridLayout, QMessageBox,
-    QTableView, QRadioButton, QButtonGroup, QGridLayout,
-    QStackedWidget, QHeaderView, QCheckBox, QItemDelegate,
+    QGridLayout, QRadioButton, QListWidget, 
+    QAbstractItemView, QListWidgetItem, QPushButton
 )
 
-from Orange.data.table import Table
-from Orange.data.io import TabReader
 from Orange.widgets import gui, widget
 from Orange.widgets.widget import Input, Output
 from Orange.widgets.settings import Setting
 from Orange.widgets.utils.widgetpreview import WidgetPreview
-
+from PyQt5.QtCore import pyqtSlot as Slot
 
 _userhome = os.path.expanduser(f"~{os.sep}")
-
 
 class OWGroupby(widget.OWWidget):
     name = "Groupby"
@@ -36,10 +33,10 @@ class OWGroupby(widget.OWWidget):
         general_error = widget.Msg("{}")
 
     class Inputs:
-        data = Input("Data", Table)
+        data = Input("Data", pd.DataFrame)
 
     class Outputs:
-        out_data = Output("Same data Data", Table, default=True)
+        out_data = Output("Same data Data", pd.DataFrame, default=True)
 
     add_type_annotations = Setting(True)
     want_main_area = False
@@ -51,23 +48,52 @@ class OWGroupby(widget.OWWidget):
     def __init__(self):
         super().__init__()
         grid = QGridLayout()
-        b = QRadioButton("AAAAA")
-        grid.addWidget(b, 0, 0)
+        self.by = QListWidget()
+        self.by.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        grid.addWidget(self.by, 0, 0)
 
-        selMethBox = gui.vBox(self.controlArea, "Select Attributes", addSpace=True)
+        self.apply = QListWidget()
+        for i in ["min", "max", "mean"]:
+            item = QListWidgetItem(i)
+            self.apply.addItem(item)
+        grid.addWidget(self.apply, 0, 1)
+
+        self.button = QPushButton("Process")
+        self.button.clicked.connect(self.process)
+        grid.addWidget(self.button, 1, 0)
+
+        selMethBox = gui.vBox(
+            self.controlArea, "Select Attributes", addSpace=True)
         selMethBox.layout().addLayout(grid)
 
         self.adjustSize()
 
     @Inputs.data
     def dataset(self, data):
-        self.data = data
-        self.data.domain
-        self.Outputs.out_data.send(data)
+        if data is not None:
+            self.data = data
+            self.by.clear()
+            for i in self.data.columns:
+                item = QListWidgetItem(f"{i}")
+                self.by.addItem(item)
+            # self.Outputs.out_data.send(data)
+
+    @Slot()
+    def process(self):
+        byitems = list(map(lambda x: x.text(), self.by.selectedItems()))
+        if len(self.apply.selectedItems()) > 0:
+            appitem = self.apply.selectedItems()[0].text()
+
+        df = self.data.groupby(byitems)
+        df = getattr(df, appitem)()
+        df = df.reset_index(drop=True)
+        self.Outputs.out_data.send(df)
 
     def send_report(self):
         self.report_data_brief(self.data)
 
 
 if __name__ == "__main__":  # pragma: no cover
-    WidgetPreview(OWSave).run(Table("iris"))
+    WidgetPreview(OWGroupby).run(pd.DataFrame([[1,2,3],
+                                                [4,5,6]],
+                                                columns=["col1","col2","col3"]))
