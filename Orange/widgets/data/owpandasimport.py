@@ -94,8 +94,28 @@ class OWPandasImport(OWWidget):
         status = dlg.exec_()
         dlg.deleteLater()
 
-        # TODO: code the processing of chosen file
+        if status == QFileDialog.Accepted:
+            self.dialog_state["directory"] = dlg.directory().absolutePath()
+            self.dialog_state["filter"] = dlg.selectedNameFilter()
+            path = dlg.selectedFiles()[0]
+
+            self.file_combo.addItem(path)
+            self.load_data()
+
+
+    def load_data(self):
+        path = self.file_combo.currentText()
+        file_type = path.rpartition(".")[2]
+
+        if file_type == "csv":
+            self.Outputs.data.send(pd.read_csv(path, sep=';'))
+        if file_type in ("pkl", "pickle"):
+            self.Outputs.data.send(pd.read_pickle(path))
+        if file_type == "xls":
+            self.Outputs.data.send(pd.read_excel(path))
+
     
+
     def recall_last_state(self, file_dialog):
         state = self.dialog_state
         lastdir = state.get("directory", "")
