@@ -22,10 +22,6 @@ class OWConverter(widget.OWWidget):
     def set_dataset(self, data, tid=None):
         if data is not None:
             self.Outputs.data.send(table_from_frame(data))
-    
-    def commit(self):
-        if data is not None:
-            self.Outputs.data.send(table_from_frame(self.Inputs.data))
 
     
 if __name__ == "__main__":  # pragma: no cover
