@@ -7,13 +7,13 @@ from Orange.widgets.utils.widgetpreview import WidgetPreview
 import pandas as pd
 
 class OWConverter(widget.OWWidget):
-    name = "Converter"
+    name = "Converter dataframe to table"
     description = "convert a dataframe to table"
     icon = "icons/Save.svg"
     category = "Data"
 
     class Inputs:
-        data = Input("Data", pd.DataFrame, multiple=True)
+        data = Input("DataFrame", pd.DataFrame, multiple=True)
 
     class Outputs:
         data = Output("Data", Table, default=True)
@@ -24,7 +24,8 @@ class OWConverter(widget.OWWidget):
             self.Outputs.data.send(table_from_frame(data))
     
     def commit(self):
-        self.Outputs.data.send(table_from_frame(self.Inputs.data))
+        if data is not None:
+            self.Outputs.data.send(table_from_frame(self.Inputs.data))
 
     
 if __name__ == "__main__":  # pragma: no cover
