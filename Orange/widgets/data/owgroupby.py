@@ -33,7 +33,7 @@ class OWGroupby(widget.OWWidget):
         general_error = widget.Msg("{}")
 
     class Inputs:
-        data = Input("Data", pd.DataFrame)
+        data = Input("DataFrame", pd.DataFrame)
 
     class Outputs:
         out_data = Output("Same data Data", pd.DataFrame, default=True)
@@ -86,7 +86,7 @@ class OWGroupby(widget.OWWidget):
 
         df = self.data.groupby(byitems)
         df = getattr(df, appitem)()
-        df = df.reset_index(drop=True)
+        df = df.reset_index()
         self.Outputs.out_data.send(df)
 
     def send_report(self):
