@@ -1,3 +1,5 @@
+from collections import OrderedDict
+import pandas as pd
 from Orange.widgets.utils.widgetpreview import WidgetPreview
 from Orange.widgets.widget import Input
 
@@ -23,7 +25,6 @@ else:
     from matplotlib.backends.backend_qt4agg import (
         FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 
-import pandas as pd
 
 class OWMatplotlib(widget.OWWidget):
     name = "3D Plot"
@@ -36,6 +37,9 @@ class OWMatplotlib(widget.OWWidget):
 
     def __init__(self):
         super().__init__()
+
+        self._inputs = OrderedDict()
+
         vbox = QVBoxLayout()
 
         canvas = FigureCanvas(Figure(figsize=(5, 5)))
@@ -67,46 +71,55 @@ class OWMatplotlib(widget.OWWidget):
 
         self.layout().addLayout(vbox)
         self.adjustSize()
+        self.prev_cols = []
+
 
     @Slot(int)
     def x_axis_change(self, val):
-        print("x", val)
-        self.sel_xcol = self.data.columns[val]
+        self.sel_xcol = self.prev_cols[val]
         self.update_plot()
 
     @Slot(int)
     def y_axis_change(self, val):
-        print("y", val)
-        self.sel_ycol = self.data.columns[val]
+        self.sel_ycol = self.prev_cols[val]
         self.update_plot()
 
     @Slot(int)
     def z_axis_change(self, val):
-        print("z", val)
-        self.sel_zcol = self.data.columns[val]
+        self.sel_zcol = self.prev_cols[val]
         self.update_plot()
 
     @Inputs.data
     def set_dataset(self, data, tid=None):
         if data is not None:
-            self.data = data
-            self.combo_xaxis.clear()
-            self.combo_yaxis.clear()
-            self.combo_zaxis.clear()
+            for v in self._inputs:
+                if list(self._inputs[v].columns) != list(data.columns):
+                    raise Exception("AAAA")
+                
+            if list(self.prev_cols) != list(data.columns):
+                self.combo_xaxis.clear()
+                self.combo_yaxis.clear()
+                self.combo_zaxis.clear()
 
-            self.combo_xaxis.addItems(self.data.columns)
-            self.combo_yaxis.addItems(self.data.columns)
-            self.combo_zaxis.addItems(self.data.columns)
-
+                self.prev_cols = data.columns
+                self.combo_xaxis.addItems(data.columns)
+                self.combo_yaxis.addItems(data.columns)
+                self.combo_zaxis.addItems(data.columns)
+                
+            self._inputs[tid] = data
+            self.update_plot()
+        elif tid in self._inputs:
+            self._inputs.pop(tid)
             self.update_plot()
 
     def update_plot(self):
         if not self.sel_xcol or not self.sel_ycol or not self.sel_zcol:
             return
         self.ax.clear()
-        self.ax.scatter(self.data[self.sel_xcol], 
-                        self.data[self.sel_ycol], 
-                        self.data[self.sel_zcol])
+        for v in self._inputs:
+            self.ax.scatter(self._inputs[v][self.sel_xcol],
+                            self._inputs[v][self.sel_ycol],
+                            self._inputs[v][self.sel_zcol])
         self.ax.figure.canvas.draw()
 
 
