@@ -1,3 +1,4 @@
+from functools import partial
 from collections import OrderedDict
 import pandas as pd
 from Orange.widgets.utils.widgetpreview import WidgetPreview
@@ -45,86 +46,75 @@ class OWMatplotlib(widget.OWWidget):
         canvas = FigureCanvas(Figure(figsize=(5, 5)))
         vbox.addWidget(canvas)
 
-        grid = QGridLayout()
+        self.grid = QGridLayout()
 
-        self.combo_xaxis = QComboBox()
-        self.combo_xaxis.currentIndexChanged.connect(self.x_axis_change)
-        grid.addWidget(QLabel("Xaxis"), 0, 0)
-        grid.addWidget(self.combo_xaxis, 1, 0)
-        self.sel_xcol = None
-
-        self.combo_yaxis = QComboBox()
-        self.combo_yaxis.currentIndexChanged.connect(self.y_axis_change)
-        grid.addWidget(QLabel("Yaxis"), 0, 1)
-        grid.addWidget(self.combo_yaxis, 1, 1)
-        self.sel_ycol = None
-
-        self.combo_zaxis = QComboBox()
-        self.combo_zaxis.currentIndexChanged.connect(self.z_axis_change)
-        grid.addWidget(QLabel("Zaxis"), 0, 2)
-        grid.addWidget(self.combo_zaxis, 1, 2)
-        self.sel_zcol = None
-
-        vbox.addLayout(grid)
+        vbox.addLayout(self.grid)
 
         self.ax = canvas.figure.gca(projection='3d')
 
         self.layout().addLayout(vbox)
         self.adjustSize()
-        self.prev_cols = []
-
 
     @Slot(int)
-    def x_axis_change(self, val):
-        self.sel_xcol = self.prev_cols[val]
-        self.update_plot()
-
-    @Slot(int)
-    def y_axis_change(self, val):
-        self.sel_ycol = self.prev_cols[val]
-        self.update_plot()
-
-    @Slot(int)
-    def z_axis_change(self, val):
-        self.sel_zcol = self.prev_cols[val]
+    def axis_changed(self, ninp, naxis, val):
+        self._inputs[ninp]["sel_cols"][naxis] = self._inputs[ninp]["data"].columns[val]
         self.update_plot()
 
     @Inputs.data
     def set_dataset(self, data, tid=None):
+        print(tid, data is None)
         if data is not None:
-            for v in self._inputs:
-                if list(self._inputs[v].columns) != list(data.columns):
-                    raise Exception("AAAA")
-                
-            if list(self.prev_cols) != list(data.columns):
-                self.combo_xaxis.clear()
-                self.combo_yaxis.clear()
-                self.combo_zaxis.clear()
+            if tid in self._inputs:
+                slot = self._inputs[tid]
+                if list(slot["data"].columns) != list(slot["prev_cols"]):
+                    print(list(slot["data"].columns),list(slot["prev_cols"]))
+                    for ax in slot["combobox"]:
+                        ax.clear()
+                        ax.addItems(data.columns)
+                        slot["prev_cols"] = slot["data"].columns
+                slot["data"] = data
+            else:
+                axis = [QComboBox(), QComboBox(), QComboBox()]
+                labels = [QLabel("X"), QLabel("Y"), QLabel("Z")]
+                self._inputs[tid] = {"data": data,
+                                     "combobox": axis,
+                                     "axis_labels": labels,
+                                     "sel_cols": [None, None, None],
+                                     "prev_cols": data.columns}
+                for i in range(3):
+                    axis[i].currentIndexChanged.connect(
+                        partial(self.axis_changed, tid, i))
+                    ypos = (len(self._inputs)-1)*3
+                    self.grid.addWidget(labels[i], 0+ypos, i)
+                    self.grid.addWidget(axis[i], 1+ypos, i)
 
-                self.prev_cols = data.columns
-                self.combo_xaxis.addItems(data.columns)
-                self.combo_yaxis.addItems(data.columns)
-                self.combo_zaxis.addItems(data.columns)
-                
-            self._inputs[tid] = data
-            self.update_plot()
+                    axis[i].addItems(data.columns)
         elif tid in self._inputs:
+            for ax in self._inputs[tid]["combobox"]:
+                ax.deleteLater()
+            for axl in self._inputs[tid]["axis_labels"]:
+                axl.deleteLater()
             self._inputs.pop(tid)
-            self.update_plot()
+
+        self.update_plot()
 
     def update_plot(self):
-        if not self.sel_xcol or not self.sel_ycol or not self.sel_zcol:
-            return
         self.ax.clear()
         for v in self._inputs:
-            self.ax.scatter(self._inputs[v][self.sel_xcol],
-                            self._inputs[v][self.sel_ycol],
-                            self._inputs[v][self.sel_zcol])
+            xcol = self._inputs[v]["sel_cols"][0]
+            ycol = self._inputs[v]["sel_cols"][1]
+            zcol = self._inputs[v]["sel_cols"][2]
+            if xcol == None or ycol == None or zcol == None:
+                continue
+            self.ax.scatter(self._inputs[v]["data"][xcol],
+                            self._inputs[v]["data"][ycol],
+                            self._inputs[v]["data"][zcol], label=zcol)
+        self.ax.legend()
         self.ax.figure.canvas.draw()
 
 
 if __name__ == "__main__":  # pragma: no cover
     WidgetPreview(OWMatplotlib).run(pd.DataFrame([[1, 3, 3],
-                                                  [4, 7, 6],
+                                                  [4, 7, 4],
                                                   [2, 4, 6]],
-                                                 columns=["col1", "col2", "col3"]))
+                                            columns=["col1", "col2", "col3"]))
